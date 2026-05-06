@@ -160,7 +160,7 @@ def render_main_menu(user: User, keys: list[VpnAccess]) -> str:
     active_keys = len(keys)
     
     if user.subscription_expires_at:
-        sub_line = f"📅 Подписка актвивна до: <b>{sub_text}</b> ✅\n"
+        sub_line = f"📅 Подписка активна до: <b>{sub_text}</b> ✅\n"
     else:
         sub_line = f"📅 Подписка: {sub_text}\n"
     

@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -10,7 +11,9 @@ from src.api.dev import router as dev_router
 from src.api.health import router as health_router
 from src.api.webhooks import router as webhooks_router
 from src.bot.setup import create_dispatcher
+from src.bot.tasks import billing_worker
 from src.core.config import settings
+from src.core.db import async_session_factory
 from src.integrations.xray.fake import FakeXrayGateway
 from src.integrations.xray.grpc import XrayGrpcGateway
 from src.integrations.xray.link_builder import VpnLinkBuilder
@@ -50,9 +53,22 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.bot = bot
         app.state.dispatcher = dispatcher
 
+        # Запускаем фоновый воркер
+        app.state.billing_task = asyncio.create_task(
+            billing_worker(
+                session_factory=async_session_factory,
+                xray_gateway=app.state.xray_gateway,
+                bot_send_message_func=bot.send_message,
+            )
+        )
+
     try:
         yield
     finally:
+        billing_task = getattr(app.state, "billing_task", None)
+        if billing_task is not None:
+            billing_task.cancel()
+
         bot: Bot | None = getattr(app.state, "bot", None)
         if bot is not None:
             await bot.session.close()

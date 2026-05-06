@@ -18,6 +18,10 @@ class VpnAccessNotFoundError(ValueError):
     pass
 
 
+class InsufficientFundsError(ValueError):
+    pass
+
+
 @dataclass(frozen=True, slots=True)
 class CreatedVpnAccess:
     id: UUID
@@ -34,10 +38,14 @@ class VpnAccessService:
         session: AsyncSession,
         xray_gateway: XrayGateway,
         default_inbound_tag: str,
+        balance_service,
+        subscription_monthly_price_kopecks: int,
     ) -> None:
         self.session = session
         self.xray_gateway = xray_gateway
         self.default_inbound_tag = default_inbound_tag
+        self.balance_service = balance_service
+        self.subscription_monthly_price_kopecks = subscription_monthly_price_kopecks
         self.vpn_accesses = VpnAccessRepository(session)
 
     async def create_key(
@@ -46,6 +54,19 @@ class VpnAccessService:
         title: str | None = None,
         duration_days: int | None = None,
     ) -> CreatedVpnAccess:
+        now = datetime.now(UTC)
+        if user.subscription_expires_at is None or user.subscription_expires_at <= now:
+            if user.balance_kopecks < self.subscription_monthly_price_kopecks:
+                raise InsufficientFundsError("Not enough funds to activate subscription")
+            
+            await self.balance_service.add_balance(
+                user=user,
+                amount_kopecks=-self.subscription_monthly_price_kopecks,
+                comment="Оплата подписки VPN на 30 дней",
+            )
+            user.subscription_expires_at = now + timedelta(days=30)
+            user.notified_about_expiration = False
+
         existing_keys_count = await self.vpn_accesses.count_user_keys(user.id)
         if existing_keys_count >= user.max_vpn_keys:
             raise VpnKeyLimitExceededError("User VPN key limit exceeded")

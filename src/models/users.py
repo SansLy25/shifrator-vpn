@@ -20,6 +20,8 @@ class User(TimestampMixin, Base):
     balance_kopecks: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     max_vpn_keys: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
     blocked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    subscription_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    notified_about_expiration: Mapped[bool] = mapped_column(default=False, server_default="false", nullable=False)
 
     vpn_accesses = relationship("VpnAccess", back_populates="user", cascade="all, delete-orphan")
     payments = relationship("Payment", back_populates="user")

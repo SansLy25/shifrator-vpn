@@ -8,7 +8,7 @@ from src.models.users import User
 from src.models.vpn_accesses import VpnAccess
 from src.integrations.xray.link_builder import VpnLinkBuilder
 from src.services.users import UserService
-from src.services.vpn_accesses import VpnAccessService, VpnKeyLimitExceededError
+from src.services.vpn_accesses import InsufficientFundsError, VpnAccessService, VpnKeyLimitExceededError
 
 router = Router(name="main")
 
@@ -89,6 +89,9 @@ async def handle_create_key(
     except VpnKeyLimitExceededError:
         await callback.answer("Достигнут лимит ключей.", show_alert=True)
         return
+    except InsufficientFundsError:
+        await callback.answer("Недостаточно средств для оформления подписки. Пополните баланс.", show_alert=True)
+        return
 
     keys = await vpn_access_service.list_user_keys(user)
     await edit_callback_message(
@@ -117,9 +120,11 @@ async def edit_callback_message(callback: CallbackQuery, text: str, reply_markup
 
 
 def render_main_menu(user: User) -> str:
+    sub_text = user.subscription_expires_at.strftime("%d.%m.%Y") if user.subscription_expires_at else "Нет"
     return (
         "👋 <b>Shifrator VPN</b>\n\n"
         f"Баланс: <b>{format_kopecks(user.balance_kopecks)}</b>\n"
+        f"Подписка: <b>{sub_text}</b>\n"
         f"Лимит ключей: <b>{user.max_vpn_keys}</b>\n\n"
         "Выбери действие:"
     )

@@ -48,9 +48,15 @@ def balance_service():
     return service
 
 
+class MockBillingService:
+    async def try_resume_subscription(self, user: User) -> bool:
+        return False
+
+
 @pytest.fixture
 def payment_service(balance_service, user, monkeypatch):
-    service = PaymentService(NoopSession(), balance_service)
+    billing_service = MockBillingService()
+    service = PaymentService(NoopSession(), balance_service, billing_service)
     service.payments = MemoryPaymentRepository()
     
     monkeypatch.setattr("src.repositories.users.UserRepository", lambda session: MemoryUserRepository(user))

@@ -37,11 +37,14 @@ def get_balance_service(session: AsyncSession = Depends(get_db_session)) -> Bala
 def get_vpn_access_service(
     request: Request,
     session: AsyncSession = Depends(get_db_session),
+    balance_service: BalanceService = Depends(get_balance_service),
 ) -> VpnAccessService:
     return VpnAccessService(
         session=session,
         xray_gateway=request.app.state.xray_gateway,
         default_inbound_tag=settings.xray_default_inbound_tag,
+        balance_service=balance_service,
+        subscription_monthly_price_kopecks=settings.vpn_subscription_monthly_rub * 100,
     )
 
 

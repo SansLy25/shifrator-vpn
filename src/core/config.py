@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     webhook_base_url: str | None = None
     telegram_webhook_secret: str = "change-me"
     payment_provider_token: SecretStr | None = None
+    vpn_subscription_monthly_rub: int = 150
 
     xray_gateway: str = "fake"
     xray_api_address: str = "amnezia-xray:10085"

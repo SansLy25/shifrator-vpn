@@ -7,6 +7,7 @@ from src.models.payments import Payment, PaymentProvider, PaymentStatus
 from src.models.users import User
 from src.repositories.payments import PaymentRepository
 from src.services.balances import BalanceService
+from src.services.billing import BillingService
 
 
 class PaymentNotFoundError(ValueError):
@@ -18,9 +19,10 @@ class PaymentAlreadyProcessedError(ValueError):
 
 
 class PaymentService:
-    def __init__(self, session: AsyncSession, balance_service: BalanceService) -> None:
+    def __init__(self, session: AsyncSession, balance_service: BalanceService, billing_service: BillingService) -> None:
         self.session = session
         self.balance_service = balance_service
+        self.billing_service = billing_service
         self.payments = PaymentRepository(session)
 
     async def create_payment(self, user: User, amount_kopecks: int, currency: str = "RUB") -> Payment:
@@ -73,6 +75,10 @@ class PaymentService:
             amount_kopecks=payment.amount_kopecks,
             comment=f"Пополнение через Telegram (ID: {telegram_payment_charge_id})",
         )
+        
+        # Пытаемся разблокировать или продлить подписку
+        # (Баланс только что пополнен, поэтому если его хватает, подписка продлится)
+        await self.billing_service.try_resume_subscription(user)
         
         await self.session.flush()
         return payment

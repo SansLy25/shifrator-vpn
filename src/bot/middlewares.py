@@ -6,15 +6,20 @@ from aiogram.types import TelegramObject
 
 from src.core.db import async_session_factory
 from src.integrations.xray.base import XrayGateway
+from src.integrations.xray.link_builder import VpnLinkBuilder
 from src.services.balances import BalanceService
+from src.services.payments import PaymentService
 from src.services.users import UserService
 from src.services.vpn_accesses import VpnAccessService
 
 
 class ServiceMiddleware(BaseMiddleware):
-    def __init__(self, xray_gateway: XrayGateway, default_inbound_tag: str) -> None:
+    def __init__(
+        self, xray_gateway: XrayGateway, default_inbound_tag: str, vpn_link_builder: VpnLinkBuilder
+    ) -> None:
         self.xray_gateway = xray_gateway
         self.default_inbound_tag = default_inbound_tag
+        self.vpn_link_builder = vpn_link_builder
 
     async def __call__(
         self,
@@ -25,12 +30,15 @@ class ServiceMiddleware(BaseMiddleware):
         async with async_session_factory() as session:
             data["db_session"] = session
             data["user_service"] = UserService(session)
-            data["balance_service"] = BalanceService(session)
+            balance_service = BalanceService(session)
+            data["balance_service"] = balance_service
+            data["payment_service"] = PaymentService(session, balance_service)
             data["vpn_access_service"] = VpnAccessService(
                 session=session,
                 xray_gateway=self.xray_gateway,
                 default_inbound_tag=self.default_inbound_tag,
             )
+            data["vpn_link_builder"] = self.vpn_link_builder
 
             try:
                 result = await handler(event, data)

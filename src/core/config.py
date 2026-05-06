@@ -11,10 +11,17 @@ class Settings(BaseSettings):
     bot_token: SecretStr | None = None
     webhook_base_url: str | None = None
     telegram_webhook_secret: str = "change-me"
+    payment_provider_token: SecretStr | None = None
 
     xray_gateway: str = "fake"
-    xray_api_address: str = "127.0.0.1:10085"
+    xray_api_address: str = "amnezia-xray:10085"
     xray_default_inbound_tag: str = "vless-reality"
+    xray_host: str = "sansly.ru"
+    xray_port: int = 4646
+    xray_public_key: str = "XeoxeDNDFBLfLWK7pao5bXwnvVtrJaMVQCT7NhS7eCU"
+    xray_short_id: str = "daa9ad37f0f1ac27"
+    xray_sni: str = "dl.google.com"
+    xray_flow: str = "xtls-rprx-vision"
 
     postgres_host: str = "db"
     postgres_port: int = 5432

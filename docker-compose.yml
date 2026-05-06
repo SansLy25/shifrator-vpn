@@ -32,6 +32,7 @@ services:
         condition: service_healthy
     networks:
       - main
+      - amnezia-dns-net
 
 volumes:
   postgres_data:
@@ -39,3 +40,5 @@ volumes:
 networks:
   main:
     driver: bridge
+  amnezia-dns-net:
+    external: true

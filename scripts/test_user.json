@@ -1,0 +1,11 @@
+{
+    "inboundTag": "vless-reality",
+    "user": {
+        "email": "bot:user:999999:key:test-00000000-0000-0000-0000-000000000001",
+        "level": 0,
+        "account": {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "flow": "xtls-rprx-vision"
+        }
+    }
+}

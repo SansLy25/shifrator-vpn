@@ -3,9 +3,10 @@ from aiogram.filters import CommandStart
 from aiogram.types import CallbackQuery, Message, User as TelegramUser
 
 from src.bot.callbacks import MenuCallback
-from src.bot.keyboards import back_to_main_keyboard, keys_menu_keyboard, main_menu_keyboard
+from src.bot.keyboards import back_to_main_keyboard, balance_keyboard, keys_menu_keyboard, main_menu_keyboard
 from src.models.users import User
 from src.models.vpn_accesses import VpnAccess
+from src.integrations.xray.link_builder import VpnLinkBuilder
 from src.services.users import UserService
 from src.services.vpn_accesses import VpnAccessService, VpnKeyLimitExceededError
 
@@ -49,7 +50,7 @@ async def handle_balance(
 ) -> None:
     telegram_user = require_telegram_user(callback.from_user)
     user = await user_service.get_or_create_from_telegram(telegram_id=telegram_user.id)
-    await edit_callback_message(callback, render_balance(user), back_to_main_keyboard())
+    await edit_callback_message(callback, render_balance(user), balance_keyboard())
     await callback.answer()
 
 
@@ -59,13 +60,14 @@ async def handle_keys(
     callback_data: MenuCallback,
     user_service: UserService,
     vpn_access_service: VpnAccessService,
+    vpn_link_builder: VpnLinkBuilder,
 ) -> None:
     telegram_user = require_telegram_user(callback.from_user)
     user = await user_service.get_or_create_from_telegram(telegram_id=telegram_user.id)
     keys = await vpn_access_service.list_user_keys(user)
     await edit_callback_message(
         callback,
-        render_keys(user, keys),
+        render_keys(user, keys, vpn_link_builder),
         keys_menu_keyboard(can_create_key=len(keys) < user.max_vpn_keys),
     )
     await callback.answer()
@@ -77,6 +79,7 @@ async def handle_create_key(
     callback_data: MenuCallback,
     user_service: UserService,
     vpn_access_service: VpnAccessService,
+    vpn_link_builder: VpnLinkBuilder,
 ) -> None:
     telegram_user = require_telegram_user(callback.from_user)
     user = await user_service.get_or_create_from_telegram(telegram_id=telegram_user.id)
@@ -90,7 +93,7 @@ async def handle_create_key(
     keys = await vpn_access_service.list_user_keys(user)
     await edit_callback_message(
         callback,
-        render_keys(user, keys, header="Ключ создан."),
+        render_keys(user, keys, vpn_link_builder, header="Ключ создан."),
         keys_menu_keyboard(can_create_key=len(keys) < user.max_vpn_keys),
     )
     await callback.answer("Ключ создан")
@@ -126,11 +129,13 @@ def render_balance(user: User) -> str:
     return (
         "💳 <b>Баланс</b>\n\n"
         f"Доступно: <b>{format_kopecks(user.balance_kopecks)}</b>\n\n"
-        "Пополнение через Telegram Payments будет добавлено следующим шагом."
+        "Выберите сумму пополнения:"
     )
 
 
-def render_keys(user: User, keys: list[VpnAccess], header: str | None = None) -> str:
+def render_keys(
+    user: User, keys: list[VpnAccess], vpn_link_builder: VpnLinkBuilder, header: str | None = None
+) -> str:
     title = f"✅ <b>{header}</b>\n\n" if header else ""
     if not keys:
         return (
@@ -147,12 +152,14 @@ def render_keys(user: User, keys: list[VpnAccess], header: str | None = None) ->
     ]
     for index, key in enumerate(keys, start=1):
         expires_at = key.expires_at.strftime("%d.%m.%Y") if key.expires_at else "без срока"
+        link = vpn_link_builder.build(uuid=key.xray_client_uuid, name=key.title)
         lines.extend(
             [
                 f"<b>{index}. {key.title}</b>",
                 f"Статус: <code>{key.status}</code>",
                 f"Истекает: <b>{expires_at}</b>",
-                f"Xray email: <code>{key.xray_email}</code>",
+                f"Ссылка для подключения:",
+                f"<code>{link}</code>",
                 "",
             ]
         )

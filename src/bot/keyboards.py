@@ -26,3 +26,13 @@ def back_to_main_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text="⬅️ Главное меню", callback_data=MenuCallback(action="main"))
     return builder.as_markup()
+
+
+def balance_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text="Пополнить 100 ₽", callback_data="topup_100")
+    builder.button(text="Пополнить 500 ₽", callback_data="topup_500")
+    builder.button(text="Пополнить 1000 ₽", callback_data="topup_1000")
+    builder.button(text="⬅️ Главное меню", callback_data=MenuCallback(action="main"))
+    builder.adjust(1)
+    return builder.as_markup()

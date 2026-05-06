@@ -13,6 +13,7 @@ from src.bot.setup import create_dispatcher
 from src.core.config import settings
 from src.integrations.xray.fake import FakeXrayGateway
 from src.integrations.xray.grpc import XrayGrpcGateway
+from src.integrations.xray.link_builder import VpnLinkBuilder
 from src.services.subscriptions import SubscriptionService
 
 
@@ -21,6 +22,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.bot = None
     app.state.dispatcher = None
     app.state.xray_gateway = create_xray_gateway()
+    app.state.vpn_link_builder = create_vpn_link_builder()
     app.state.subscription_service = SubscriptionService(
         xray_gateway=app.state.xray_gateway,
         default_inbound_tag=settings.xray_default_inbound_tag,
@@ -34,6 +36,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         dispatcher = create_dispatcher(
             xray_gateway=app.state.xray_gateway,
             default_inbound_tag=settings.xray_default_inbound_tag,
+            vpn_link_builder=app.state.vpn_link_builder,
         )
 
         if settings.telegram_webhook_url:
@@ -41,6 +44,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 url=settings.telegram_webhook_url,
                 secret_token=settings.telegram_webhook_secret,
                 drop_pending_updates=True,
+                allowed_updates=dispatcher.resolve_used_update_types(),
             )
 
         app.state.bot = bot
@@ -69,6 +73,17 @@ def create_xray_gateway() -> FakeXrayGateway | XrayGrpcGateway:
     if settings.xray_gateway == "grpc":
         return XrayGrpcGateway(settings.xray_api_address)
     raise ValueError(f"Unsupported Xray gateway: {settings.xray_gateway}")
+
+
+def create_vpn_link_builder() -> VpnLinkBuilder:
+    return VpnLinkBuilder(
+        host=settings.xray_host,
+        port=settings.xray_port,
+        public_key=settings.xray_public_key,
+        short_id=settings.xray_short_id,
+        sni=settings.xray_sni,
+        flow=settings.xray_flow,
+    )
 
 
 app = create_app()

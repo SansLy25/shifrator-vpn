@@ -4,11 +4,13 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from src.bot.callbacks import MenuCallback
 
 
-def main_menu_keyboard() -> InlineKeyboardMarkup:
+def main_menu_keyboard(has_subscription: bool) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    builder.button(text="🔑 Мои ключи", callback_data=MenuCallback(action="keys"))
+    if has_subscription:
+        builder.button(text="🔑 Мои ключи", callback_data=MenuCallback(action="keys"))
+        builder.button(text="➕ Создать ключ", callback_data=MenuCallback(action="create_key"))
     builder.button(text="💳 Баланс", callback_data=MenuCallback(action="balance"))
-    builder.button(text="➕ Создать ключ", callback_data=MenuCallback(action="create_key"))
+    builder.button(text="📖 Инструкция", callback_data=MenuCallback(action="instruction"))
     builder.adjust(1)
     return builder.as_markup()
 
@@ -28,11 +30,11 @@ def back_to_main_keyboard() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def balance_keyboard() -> InlineKeyboardMarkup:
+def balance_keyboard(monthly_price_rub: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    builder.button(text="Пополнить 100 ₽", callback_data="topup_100")
-    builder.button(text="Пополнить 500 ₽", callback_data="topup_500")
-    builder.button(text="Пополнить 1000 ₽", callback_data="topup_1000")
+    for i in range(1, 6):
+        amount = monthly_price_rub * i
+        builder.button(text=f"Пополнить {amount} ₽ (на {i} мес.)", callback_data=f"topup_{amount}")
     builder.button(text="⬅️ Главное меню", callback_data=MenuCallback(action="main"))
     builder.adjust(1)
     return builder.as_markup()

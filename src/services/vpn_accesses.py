@@ -58,11 +58,11 @@ class VpnAccessService:
         if user.subscription_expires_at is None or user.subscription_expires_at <= now:
             if user.balance_kopecks < self.subscription_monthly_price_kopecks:
                 raise InsufficientFundsError("Not enough funds to activate subscription")
-            
-            await self.balance_service.add_balance(
+            # Начинаем подписку
+            await self.balance_service.charge_balance(
                 user=user,
-                amount_kopecks=-self.subscription_monthly_price_kopecks,
-                comment="Оплата подписки VPN на 30 дней",
+                amount_kopecks=self.subscription_monthly_price_kopecks,
+                comment="Оплата первого месяца подписки VPN",
             )
             user.subscription_expires_at = now + timedelta(days=30)
             user.notified_about_expiration = False

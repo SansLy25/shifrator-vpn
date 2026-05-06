@@ -79,7 +79,7 @@ async def test_complete_payment(payment_service: PaymentService, user: User):
     payment = await payment_service.create_payment(user, 50000)
     assert user.balance_kopecks == 0
 
-    completed_payment = await payment_service.complete_payment(
+    completed_payment, _ = await payment_service.complete_payment(
         invoice_payload=payment.invoice_payload,
         telegram_payment_charge_id="test_tg_charge",
         provider_payment_charge_id="test_provider_charge",

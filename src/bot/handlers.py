@@ -1,9 +1,11 @@
+from datetime import timedelta
 from aiogram import F, Router
 from aiogram.filters import CommandStart
 from aiogram.types import CallbackQuery, Message, User as TelegramUser
 
 from src.bot.callbacks import MenuCallback
 from src.bot.keyboards import back_to_main_keyboard, balance_keyboard, keys_menu_keyboard, main_menu_keyboard
+from src.core.config import settings
 from src.models.users import User
 from src.models.vpn_accesses import VpnAccess
 from src.integrations.xray.link_builder import VpnLinkBuilder
@@ -14,7 +16,7 @@ router = Router(name="main")
 
 
 @router.message(CommandStart())
-async def handle_start(message: Message, user_service: UserService) -> None:
+async def handle_start(message: Message, user_service: UserService, vpn_access_service: VpnAccessService) -> None:
     telegram_user = require_telegram_user(message.from_user)
     user = await user_service.get_or_create_from_telegram(
         telegram_id=telegram_user.id,
@@ -22,7 +24,9 @@ async def handle_start(message: Message, user_service: UserService) -> None:
         first_name=telegram_user.first_name,
         last_name=telegram_user.last_name,
     )
-    await message.answer(render_main_menu(user), reply_markup=main_menu_keyboard())
+    keys = await vpn_access_service.list_user_keys(user)
+    has_sub = user.subscription_expires_at is not None
+    await message.answer(render_main_menu(user, keys), reply_markup=main_menu_keyboard(has_sub))
 
 
 @router.callback_query(MenuCallback.filter(F.action == "main"))
@@ -30,6 +34,7 @@ async def handle_main_menu(
     callback: CallbackQuery,
     callback_data: MenuCallback,
     user_service: UserService,
+    vpn_access_service: VpnAccessService,
 ) -> None:
     telegram_user = require_telegram_user(callback.from_user)
     user = await user_service.get_or_create_from_telegram(
@@ -38,7 +43,9 @@ async def handle_main_menu(
         first_name=telegram_user.first_name,
         last_name=telegram_user.last_name,
     )
-    await edit_callback_message(callback, render_main_menu(user), main_menu_keyboard())
+    keys = await vpn_access_service.list_user_keys(user)
+    has_sub = user.subscription_expires_at is not None
+    await edit_callback_message(callback, render_main_menu(user, keys), main_menu_keyboard(has_sub))
     await callback.answer()
 
 
@@ -50,7 +57,16 @@ async def handle_balance(
 ) -> None:
     telegram_user = require_telegram_user(callback.from_user)
     user = await user_service.get_or_create_from_telegram(telegram_id=telegram_user.id)
-    await edit_callback_message(callback, render_balance(user), balance_keyboard())
+    await edit_callback_message(callback, render_balance(user), balance_keyboard(settings.vpn_subscription_monthly_rub))
+    await callback.answer()
+
+
+@router.callback_query(MenuCallback.filter(F.action == "instruction"))
+async def handle_instruction(
+    callback: CallbackQuery,
+    callback_data: MenuCallback,
+) -> None:
+    await edit_callback_message(callback, render_instruction(), back_to_main_keyboard())
     await callback.answer()
 
 
@@ -119,13 +135,41 @@ async def edit_callback_message(callback: CallbackQuery, text: str, reply_markup
     await callback.message.edit_text(text, reply_markup=reply_markup)
 
 
-def render_main_menu(user: User) -> str:
-    sub_text = user.subscription_expires_at.strftime("%d.%m.%Y") if user.subscription_expires_at else "Нет"
+def render_main_menu(user: User, keys: list[VpnAccess]) -> str:
+    balance_str = format_kopecks(user.balance_kopecks)
+
+    if not user.subscription_expires_at:
+        if len(keys) == 0:
+            return (
+                "👋 <b>Добро пожаловать в Shifrator VPN!</b>\n\n"
+                "Здесь вы можете создать надежный и быстрый VPN-ключ.\n"
+                f"💰 Стоимость подписки: <b>{settings.vpn_subscription_monthly_rub} ₽ в месяц</b>.\n\n"
+                "Подписка действует на <b>все</b> ваши устройства (ключи).\n"
+                f"Текущий баланс: <b>{balance_str}</b>\n\n"
+                "👉 <i>Чтобы начать, пополните баланс на нужную сумму. "
+                "Затем вернитесь сюда и нажмите «Создать ключ».</i>"
+            )
+        else:
+            sub_text = "❌ <b>Неактивна</b> (пополните баланс)"
+    else:
+        monthly_kopecks = settings.vpn_subscription_monthly_rub * 100
+        months_covered = user.balance_kopecks // monthly_kopecks
+        total_expires_at = user.subscription_expires_at + timedelta(days=30 * months_covered)
+        sub_text = total_expires_at.strftime("%d.%m.%Y")
+
+    active_keys = len(keys)
+    
+    if user.subscription_expires_at:
+        sub_line = f"📅 Подписка актвивна до: <b>{sub_text}</b> ✅\n"
+    else:
+        sub_line = f"📅 Подписка: {sub_text}\n"
+    
     return (
         "👋 <b>Shifrator VPN</b>\n\n"
-        f"Баланс: <b>{format_kopecks(user.balance_kopecks)}</b>\n"
-        f"Подписка: <b>{sub_text}</b>\n"
-        f"Лимит ключей: <b>{user.max_vpn_keys}</b>\n\n"
+        f"💳 Баланс: <b>{balance_str}</b>\n"
+        f"{sub_line}"
+        f"🔑 Ключи: <b>{active_keys}/{user.max_vpn_keys}</b>\n\n"
+        "💡 <i>Создайте новый ключ для другого устройства или пополните баланс для продления подписки.</i>\n\n"
         "Выбери действие:"
     )
 
@@ -135,6 +179,22 @@ def render_balance(user: User) -> str:
         "💳 <b>Баланс</b>\n\n"
         f"Доступно: <b>{format_kopecks(user.balance_kopecks)}</b>\n\n"
         "Выберите сумму пополнения:"
+    )
+
+
+def render_instruction() -> str:
+    return (
+        "📖 <b>Инструкция по подключению</b>\n\n"
+        "1️⃣ Скачайте приложение поддерживающее протокол Xray/VLESS:\n"
+        "• <b><a href=\"https://storage.googleapis.com/amnezia/amnezia.org\">AmneziaVPN</a></b> (Android, iOS, ПК)\n"
+        "• <b><a href=\"https://play.google.com/store/apps/details?id=com.github.v2raygg\">v2rayNG</a></b> (для Android)\n"
+        "• <b><a href=\"https://apps.apple.com/us/app/v2box-v2ray-client/id6446814690\">V2Box</a></b> (для iOS)\n"
+        "• <b><a href=\"https://github.com/MatsuriDayo/nekoray/releases\">Nekoray</a></b> / <b><a href=\"https://github.com/2dust/v2rayN/releases\">v2rayN</a></b> (для ПК).\n"
+        "2️⃣ Пополните баланс и создайте новый ключ в разделе «Мои ключи».\n"
+        "3️⃣ Скопируйте ссылку созданного ключа (начинается с <code>vless://...</code>).\n"
+        "4️⃣ Откройте скачанное приложение и импортируйте ссылку (обычно кнопка «+» или добавить).\n"
+        "5️⃣ Нажмите кнопку подключения.\n\n"
+        "💡 <i>Один ключ можно использовать на одном устройстве. Если вам нужно подключить второе устройство — создайте еще один ключ. Подписка действует на все ваши ключи сразу!</i>"
     )
 
 
@@ -156,13 +216,10 @@ def render_keys(
         "",
     ]
     for index, key in enumerate(keys, start=1):
-        expires_at = key.expires_at.strftime("%d.%m.%Y") if key.expires_at else "без срока"
         link = vpn_link_builder.build(uuid=key.xray_client_uuid, name=key.title)
         lines.extend(
             [
                 f"<b>{index}. {key.title}</b>",
-                f"Статус: <code>{key.status}</code>",
-                f"Истекает: <b>{expires_at}</b>",
                 f"Ссылка для подключения:",
                 f"<code>{link}</code>",
                 "",

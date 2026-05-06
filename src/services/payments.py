@@ -47,14 +47,14 @@ class PaymentService:
         invoice_payload: str,
         telegram_payment_charge_id: str,
         provider_payment_charge_id: str,
-    ) -> Payment:
+    ) -> tuple[Payment, bool]:
         payment = await self.payments.get_by_invoice_payload(invoice_payload)
         if not payment:
             raise PaymentNotFoundError("Payment with given invoice payload not found")
 
         if payment.status == PaymentStatus.SUCCEEDED:
             # Idempotency: if already processed, just return it
-            return payment
+            return payment, False
         elif payment.status != PaymentStatus.PENDING:
             raise PaymentAlreadyProcessedError(f"Payment is in {payment.status} state")
 
@@ -78,10 +78,10 @@ class PaymentService:
         
         # Пытаемся разблокировать или продлить подписку
         # (Баланс только что пополнен, поэтому если его хватает, подписка продлится)
-        await self.billing_service.try_resume_subscription(user)
+        subscription_resumed = await self.billing_service.try_resume_subscription(user)
         
         await self.session.flush()
-        return payment
+        return payment, subscription_resumed
 
     async def fail_payment(self, invoice_payload: str) -> Payment:
         payment = await self.payments.get_by_invoice_payload(invoice_payload)

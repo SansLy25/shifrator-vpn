@@ -36,9 +36,9 @@ class BillingService:
             return False  # Недостаточно средств
 
         # Списываем баланс
-        await self.balance_service.add_balance(
+        await self.balance_service.charge_balance(
             user=user,
-            amount_kopecks=-self.subscription_monthly_price_kopecks,
+            amount_kopecks=self.subscription_monthly_price_kopecks,
             comment="Автоматическое продление подписки VPN на 30 дней",
         )
 
@@ -96,9 +96,9 @@ class BillingService:
         for user in expired_users:
             if user.balance_kopecks >= self.subscription_monthly_price_kopecks:
                 # Продлеваем
-                await self.balance_service.add_balance(
+                await self.balance_service.charge_balance(
                     user=user,
-                    amount_kopecks=-self.subscription_monthly_price_kopecks,
+                    amount_kopecks=self.subscription_monthly_price_kopecks,
                     comment="Ежемесячная оплата подписки VPN",
                 )
                 user.subscription_expires_at = now + timedelta(days=30)

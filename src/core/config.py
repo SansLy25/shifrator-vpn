@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     webhook_base_url: str | None = None
     telegram_webhook_secret: str = "change-me"
 
+    xray_gateway: str = "fake"
+    xray_api_address: str = "127.0.0.1:10085"
+    xray_default_inbound_tag: str = "vless-reality"
+
     postgres_host: str = "db"
     postgres_port: int = 5432
     postgres_db: str = "shifrator"

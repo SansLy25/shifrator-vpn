@@ -17,10 +17,6 @@ async def billing_worker(
     xray_gateway: XrayGateway,
     bot_send_message_func: Callable[[int, str], Coroutine],
 ) -> None:
-    """
-    Фоновый воркер для проверки и обработки подписок.
-    Просыпается каждый час (или чаще для теста).
-    """
     logger.info("Billing worker started.")
     while True:
         try:
@@ -39,8 +35,4 @@ async def billing_worker(
             break
         except Exception as e:
             logger.error(f"Error in billing worker: {e}", exc_info=True)
-            # В случае ошибки session будет откачен (или закрыт), мы просто продолжим после паузы
-
-        # Запускаем раз в 1 час
-        # Для тестирования можно сделать раз в минуту, но в продакшене лучше раз в час
-        await asyncio.sleep(3600)
+        await asyncio.sleep(20)

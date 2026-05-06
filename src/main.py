@@ -53,7 +53,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.bot = bot
         app.state.dispatcher = dispatcher
 
-        # Запускаем фоновый воркер
         app.state.billing_task = asyncio.create_task(
             billing_worker(
                 session_factory=async_session_factory,

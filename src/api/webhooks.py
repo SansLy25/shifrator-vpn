@@ -18,7 +18,6 @@ async def telegram_webhook(secret: str, request: Request) -> dict[str, bool]:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Telegram bot is not configured")
 
     payload = await request.json()
-    print("WEBHOOK PAYLOAD:", payload)
     update = Update.model_validate(payload, context={"bot": bot})
     await dispatcher.feed_update(bot, update)
     return {"ok": True}

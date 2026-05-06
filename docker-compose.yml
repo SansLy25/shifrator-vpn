@@ -1,10 +1,12 @@
 services:
   db:
+    ports:
+      - "5433:5432"
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-shifrator}
-      POSTGRES_USER: ${POSTGRES_USER:-shifrator}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shifrator}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:

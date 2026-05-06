@@ -35,4 +35,4 @@ async def billing_worker(
             break
         except Exception as e:
             logger.error(f"Error in billing worker: {e}", exc_info=True)
-        await asyncio.sleep(20)
+        await asyncio.sleep(3600)
